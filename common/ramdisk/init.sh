@@ -138,6 +138,29 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
  ls -lR /sys/firmware > /mnt/acs_results/linux_dump/firmware.log
  cp -r /sys/firmware /mnt/acs_results/linux_dump/
 
+#Go through linux_dump and uefi_dump to retrieve hardware/device/driver failures/errors/faults
+LOG_FILE="/mnt/acs_results/dump_hardware_errors_summary.log"
+PARENT_DIR="/mnt/acs_results"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+echo -e "${GREEN}Finding hardware, driver, and device errors...${NC}"
+
+echo -e "${YELLOW}Errors and warnings from Linux and UEFI dump:${NC}" >> $LOG_FILE
+grep -rnEi '(error|fail|fault).*?(hardware|hw|driver|device|firmware|pcie|usb)' "$PARENT_DIR"/linux_dump "$PARENT_DIR"/uefi_dump >> $LOG_FILE
+
+if [ $(wc -l < "$LOG_FILE") -gt 1 ]; then
+    echo -e "${GREEN}Hardware/Device/Firmware error summary saved to $LOG_FILE${NC}"
+    cat $LOG_FILE
+else
+    echo -e "${GREEN}No device/driver errors or faults were found in linux_dump and uefi_dump.${NC}"
+    rm $LOG_FILE
+    echo -e "${YELLOW}Summary file $LOG_FILE has been deleted as it was empty.${NC}"
+fi
+
  mkdir -p /mnt/acs_results/fwts
 
  #Check for the existense of fwts test configuration file in the package. EBBR Execution
