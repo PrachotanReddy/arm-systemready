@@ -139,41 +139,40 @@ if [ $ADDITIONAL_CMD_OPTION != "noacs" ]; then
  cp -r /sys/firmware /mnt/acs_results/linux_dump/
 
 #Go through linux_dump and uefi_dump to retrieve hardware/device/driver failures/errors/faults
-LOG_FILE="/mnt/acs_results/dump_hardware_errors_summary.log"
+LOG_FILE="/mnt/acs_results/sniff_test_debugdump_$(date +%Y%m%d_%H%M%S).log"
 PARENT_DIR="/mnt/acs_results"
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
 echo -e "${GREEN}Finding hardware, driver, and device errors...${NC}"
-
 echo -e "${YELLOW}Errors and warnings from Linux and UEFI dump:${NC}" >> $LOG_FILE
-grep -rnEi '(error|fail|fault).*?(hardware|hw|driver|device|firmware|pcie|usb)' "$PARENT_DIR"/linux_dump "$PARENT_DIR"/uefi_dump >> $LOG_FILE
+grep -rnEi '(error|fail|fault).*?(hardware|hw|driver|device|firmware|pcie|usb)' \
+    $(find "$PARENT_DIR"/linux_dump -type f ! -name 'dmesg.log') \
+    "$PARENT_DIR"/uefi_dump >> $LOG_FILE
 
 if [ $(wc -l < "$LOG_FILE") -gt 1 ]; then
     echo -e "${GREEN}Hardware/Device/Firmware error summary saved to $LOG_FILE${NC}"
     cat $LOG_FILE
 else
-    echo -e "${GREEN}No device/driver errors or faults were found in linux_dump and uefi_dump.${NC}"
-    rm $LOG_FILE
-    echo -e "${YELLOW}Summary file $LOG_FILE has been deleted as it was empty.${NC}"
+    echo -e "${GREEN}No device/driver errors or faults were found in linux_dump (excluding dmesg.log) and uefi_dump.${NC}"
+    echo -e "No device/driver errors or faults were found in linux_dump (excluding dmesg.log) and uefi_dump." >> $LOG_FILE
 fi
 
- mkdir -p /mnt/acs_results/fwts
+#Go through dmesg to retrieve hardware/device/driver failures/errors/faults
+DMESG_FILE="/mnt/acs_results/linux_dump/dmesg.log"
+LOG_FILE="/mnt/acs_results/sniff_test_dmesg_$(date +%Y%m%d_%H%M%S).log"
+echo -e "${YELLOW}Errors and warnings from dmesg:${NC}" >> $LOG_FILE
+grep -nEi '(error|fail|fault).*?(hardware|hw|driver|device|firmware|pcie|usb)' "$DMESG_FILE" >> $LOG_FILE
 
- #Check for the existense of fwts test configuration file in the package. EBBR Execution
- if [ -f  /bin/ir_bbr_fwts_tests.ini ]; then
-  test_list=`cat /bin/ir_bbr_fwts_tests.ini | grep -v "^#" | awk '{print $1}' | xargs`
-  echo "Test Executed are $test_list"
-  fwts `echo $test_list` -f -r /mnt/acs_results/fwts/FWTSResults.log
- else
-  #SBBR Execution
-  echo "Executing FWTS for SBBR"
-  echo $'SystemReady SR ACS v2.1.0 \nFWTS v24.01.00' > /mnt/acs_results/fwts/FWTSResults.log
-  fwts  -r stdout -q --uefi-set-var-multiple=1 --uefi-get-mn-count-multiple=1 --sbbr esrt uefibootpath aest cedt slit srat hmat pcct pdtt bgrt bert einj erst hest sdei nfit iort mpam ibft ras2 > /mnt/acs_results/fwts/FWTSResults.log
- fi
+if [ $(wc -l < "$LOG_FILE") -gt 1 ]; then
+    echo -e "${GREEN}Hardware/Device/Firmware error summary saved to $LOG_FILE${NC}"
+    cat $LOG_FILE
+else
+    echo -e "${GREEN}No device/driver errors or faults were found in dmesg.log.${NC}"
+    echo -e "No device/driver errors or faults were found in dmesg.log" >> $LOG_FILE
+fi
 
  sleep 2
 
